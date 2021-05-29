@@ -4,9 +4,7 @@
 #include <Wire.h>
 #include <LiquidCrystal_I2C.h>
 LiquidCrystal_I2C lcd(0x27, 16, 2); // set the LCD address to 0x27 for a 16 chars and 2 line display
-int rxPin = 0;
-int txPin = 1;
-SdsDustSensor sds(rxPin, txPin);
+SdsDustSensor sds(Serial3);
 #define placa "Arduino UNO"
 #define Voltage_Resolution 5
 #define pin A3                //Analog input 0 of your arduino
@@ -18,10 +16,38 @@ MQUnifiedsensor MQ131(placa, Voltage_Resolution, ADC_Bit_Resolution, pin, type);
 #define COPIN A0
 #define NH3PIN A1
 #define NO2PIN A2
+
+String ptr;
+float CO = 0.02;
+float NO2 = 1.44;
+float NH3 = 0.02;
+float PPM = 2.46;
+float PM25 = 42.0;
+
+
+String encode(float CO, float NO2, float NH3, float PPM, float PM25)
+{
+  ptr = '@';
+  ptr += String(CO, 2);
+  ptr += ',';
+  ptr += String(NO2, 2);
+  ptr += '!';
+  ptr += String(NH3, 2);
+  ptr += '#';
+  ptr += String(PPM, 2);
+  ptr += '&';
+  ptr += String(PM25, 2);
+  ptr += '$';
+  return ptr;
+}
 void setup()
 {
   Serial.begin(9600);
-  sds.begin();
+  sds.begin();           //serial3 = sds
+  Serial2.begin(9600);   //serial2 = esp
+  Serial2.println('s');
+  Serial2.println("Hello World");
+  Serial2.println("Arduino booting");
   lcd.init(); // initialize the lcd
   lcd.backlight();
   lcd.setCursor(0, 0);
@@ -69,25 +95,37 @@ void setup()
     while (1)
       ;
   }
+  Serial2.println("Arduino booted");
 }
 
 void loop()
 {
 
-  float CO = analogRead(COPIN);
-  float NO2 = analogRead(NO2PIN);
-  float NH3 = analogRead(NH3PIN);
+  CO = analogRead(COPIN);
+  NO2 = analogRead(NO2PIN);
+  NH3 = analogRead(NH3PIN);
   const float max_volts = 5.0;
   const float max_analog_steps = 1023.0;
   CO = CO *  (max_volts / max_analog_steps);
   NO2 = NO2 * (max_volts / max_analog_steps);
   NH3 = NH3 * (max_volts / max_analog_steps);
+  lcd.clear();
+  lcd.setCursor(0,0);
+  lcd.print("NH3:");
+  lcd.print(NH3);
+  lcd.print(" NO2:");
+  lcd.print(NO2);
+  lcd.setCursor(0,1);
+  lcd.print("C0:");
+  lcd.print(CO);
+  delay(3000);
   PmResult pm = sds.readPm();
   if (pm.isOk())
   {
     lcd.setCursor(0, 0);
-    lcd.print("PM2.5= ");
+    lcd.print("PM2.5: ");
     lcd.print(pm.pm25);
+    PM25 = pm.pm25;
   }
   else
   {
@@ -96,11 +134,17 @@ void loop()
     lcd.setCursor(2, 0);
     lcd.print("ERROR SDS");
     delay(500);
+    lcd.clear();
   }
   lcd.setCursor(0, 1);
   MQ131.update();                    // Update data, the arduino will be read the voltage on the analog pin
-  float result = MQ131.readSensor(); // Sensor will read PPM concentration using the model and a and b values setted before or in the setup
+  PPM = MQ131.readSensor(); // Sensor will read PPM concentration using the model and a and b values setted before or in the setup
   lcd.print("PPM: ");
-  lcd.print(result);
-  delay(500);
+  lcd.print(PPM);
+  String package = encode(CO,NO2,NH3,PPM,PM25); 
+  Serial.println(package);
+  Serial2.println(package);
+  delay(3000);
 }
+
+//TRANSMITTER
