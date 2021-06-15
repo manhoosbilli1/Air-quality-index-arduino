@@ -113,12 +113,13 @@ void loop()
   lcd.setCursor(0,0);
   lcd.print("NH3:");
   lcd.print(NH3);
-  lcd.print(" NO2:");
-  lcd.print(NO2);
   lcd.setCursor(0,1);
   lcd.print("C0:");
   lcd.print(CO);
+  lcd.print(" NO2:");
+  lcd.print(NO2);
   delay(3000);
+  lcd.clear();
   PmResult pm = sds.readPm();
   if (pm.isOk())
   {
@@ -145,6 +146,6 @@ void loop()
   Serial.println(package);
   Serial2.println(package);
   delay(3000);
+  lcd.clear();
 }
 
-//TRANSMITTER
