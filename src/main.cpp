@@ -16,14 +16,13 @@ MQUnifiedsensor MQ131(placa, Voltage_Resolution, ADC_Bit_Resolution, pin, type);
 #define COPIN A0
 #define NH3PIN A1
 #define NO2PIN A2
-
+String quality;
 String ptr;
 float CO = 0.02;
 float NO2 = 1.44;
 float NH3 = 0.02;
 float PPM = 2.46;
 float PM25 = 42.0;
-
 
 String encode(float CO, float NO2, float NH3, float PPM, float PM25)
 {
@@ -43,8 +42,8 @@ String encode(float CO, float NO2, float NH3, float PPM, float PM25)
 void setup()
 {
   Serial.begin(9600);
-  sds.begin();           //serial3 = sds
-  Serial2.begin(9600);   //serial2 = esp
+  sds.begin();         //serial3 = sds
+  Serial2.begin(9600); //serial2 = esp
   Serial2.println('s');
   Serial2.println("Hello World");
   Serial2.println("Arduino booting");
@@ -68,9 +67,7 @@ void setup()
   float calcR0 = 0;
   lcd.setCursor(0, 0);
   lcd.clear();
-  lcd.print("MQT initial setup");
-  delay(1000);
-  lcd.clear();
+  lcd.print("MQT init");
   for (int i = 1; i <= 10; i++)
   {
     MQ131.update(); // Update data, the arduino will be read the voltage on the analog pin
@@ -78,6 +75,8 @@ void setup()
     lcd.print(".");
   }
   MQ131.setR0(calcR0 / 10);
+  delay(1000);
+  lcd.clear();
   lcd.setCursor(0, 0);
   lcd.clear();
   lcd.println("  done!.");
@@ -85,7 +84,7 @@ void setup()
   if (isinf(calcR0))
   {
     lcd.clear();
-    lcd.print("ERROR 333"); //code: 333 -> Warning: Conection issue founded, R0 is infite (Open circuit detected) please check your wiring and supply
+    lcd.print("ERROR 333"); //code: 333 -> Warning: Conection issue found, R0 is infite (Open circuit detected) please check your wiring and supply
     while (1)
       ;
   }
@@ -106,14 +105,14 @@ void loop()
   NH3 = analogRead(NH3PIN);
   const float max_volts = 5.0;
   const float max_analog_steps = 1023.0;
-  CO = CO *  (max_volts / max_analog_steps);
+  CO = CO * (max_volts / max_analog_steps);
   NO2 = NO2 * (max_volts / max_analog_steps);
   NH3 = NH3 * (max_volts / max_analog_steps);
   lcd.clear();
-  lcd.setCursor(0,0);
+  lcd.setCursor(0, 0);
   lcd.print("NH3:");
   lcd.print(NH3);
-  lcd.setCursor(0,1);
+  lcd.setCursor(0, 1);
   lcd.print("C0:");
   lcd.print(CO);
   lcd.print(" NO2:");
@@ -124,28 +123,78 @@ void loop()
   if (pm.isOk())
   {
     lcd.setCursor(0, 0);
-    lcd.print("PM2.5: ");
-    lcd.print(pm.pm25);
+    lcd.print("PM2.5:");
     PM25 = pm.pm25;
+    lcd.print(PM25);
+    if(PM25 >0 && PM25 <=50)
+    {
+      quality = "GOOD" ;
+    }
+    else if (PM25 >50 & PM25 <=100)
+    {
+      quality = "MODERATE";
+    }
+    else if (PM25 >= 101 && PM25 <=150)
+    {
+      quality = "UNHEALTHY";
+    }
   }
   else
   {
     // notice that loop delay is set to 0.5s and some reads are not available
-    lcd.clear();
-    lcd.setCursor(2, 0);
-    lcd.print("ERROR SDS");
+    lcd.print("  ERROR SDS     ");
     delay(500);
     lcd.clear();
   }
   lcd.setCursor(0, 1);
-  MQ131.update();                    // Update data, the arduino will be read the voltage on the analog pin
+  MQ131.update();           // Update data, the arduino will be read the voltage on the analog pin
   PPM = MQ131.readSensor(); // Sensor will read PPM concentration using the model and a and b values setted before or in the setup
-  lcd.print("PPM: ");
+  lcd.print("Ozone: ");
   lcd.print(PPM);
-  String package = encode(CO,NO2,NH3,PPM,PM25); 
+  String package = encode(CO, NO2, NH3, PPM, PM25);
   Serial.println(package);
   Serial2.println(package);
   delay(3000);
   lcd.clear();
+  lcd.setCursor(0,0);
+  lcd.print("AQI conc:");
+  lcd.print(PM25);
+  lcd.setCursor(0,1);
+  lcd.print("   ");
+  lcd.print(quality);
+  delay(3000);
+  lcd.clear();
 }
+/*
+//source: https://forum.airnowtech.org/t/the-aqi-equation/169
+float calc_AQI(float PM25)
+{
+    float AQI = (50 - 0) / (12 - 0) *
+                     (PM25 - 0) +
+                 0;
+
+    return AQI;
+}
+result is around 200. not correct
+*/
+/*
+void calculateAqi()
+{
+  NO_pollutant = (NO_high - NO_low) / (NO_concentration_high - NO_concentration_low) *
+                     (NO_current_concentration - NO_concentration_low) +
+                 NO_low;
+  //repeat the same equation for the rest of values.
+  CO_pollutant = (CO_high - CO_low) / (CO_concentration_high - CO_concentration_low) *
+                     (CO_current_concentration - CO_concentration_low) +
+                 CO_low;
+  NH3_pollutant = (NH3_high - NH3_low) / (NH3_concentration_high - NH3_concentration_low) *
+                      (NH3_current_concentration - NH3_concentration_low) +
+                  NH3_low;
+  O3_pollutant = (O3_high - O3_low) / (O3_concentration_high - O3_concentration_low) *
+                     (O3_current_concentration - O3_concentration_low) +
+                 O3_low;
+  
+
+}
+*/
 
